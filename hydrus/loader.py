@@ -89,7 +89,7 @@ class Loader:
         '''Construct a Loader from a SparkContext.'''
         self.ctx = ctx
         self._features = []
-        self._words = None
+        self._n_docs = None
         self._lengths = None
         self._data = None
         self._labels = None
@@ -142,6 +142,10 @@ class Loader:
             docs = docs.map(lambda x: (f'{x[0]}_{x[1][0]}', x[1][1]))  # (doc_id+, full_text)
             labels = labels.map(lambda x: (f'{x[0]}_{x[1]}', x[1]))    # (doc_id+, label)
 
+        # Create a dict mapping documents to their lengths.
+        lengths = docs.map(lambda x: (x[0], len(x[1])))  # (doc_id, length)
+        lengths = lengths.collectAsMap()                 # {doc_id: length}
+
         # Create an RDD of preprocessed words keyed by document ID.
         # Words appear once for each time they appear in the document.
         if tokenizer is None: tokenizer = Tokenizer(language='english')
@@ -152,17 +156,21 @@ class Loader:
         words = words.mapValues(preprocess)                    # (doc_id, word)
         words = words.filter(lambda x: len(x[1]) > 0)          # (doc_id, word)
 
-        # Create a dict mapping documents to their lengths
-        lengths = words.countByKey()  # {doc_id: length}
-
         # Create an RDD mapping document-word pairs to counts and frequencies.
         # This is the RDD that we will give to the user.
         # We will append additional features as requested.
         data = words.map(lambda x: ((x[0], x[1]), 1))  # ((doc_id, word), count)
         data = data.reduceByKey(lambda a, b: a + b)    # ((doc_id, word), count)
 
+        # Create a dict mapping each word to the number of docs in which it appears.
+        # This is a major performance bottleneck.
+        n_docs = words.distinct()                        # (doc_id, word)
+        n_docs = n_docs.map(lambda x: (x[1], 1))         # (word, n_doc)
+        n_docs = n_docs.reduceByKey(lambda a, b: a + b)  # (word, n_doc)
+        n_docs = n_docs.collectAsMap()                   # {word: n_doc}
+
         self._features = [name]
-        self._words = words
+        self._n_docs = n_docs
         self._lengths = lengths
         self._data = data
         self._labels = labels
@@ -183,15 +191,13 @@ class Loader:
 
     def idf(self, name='idf'):
         '''Adds a standard IDF feature with the given name.'''
-        n_docs = len(self._lengths)
-        words = self._words.distinct()            # (doc_id, word)
-        words = words.map(lambda x: (x[1], x[0])) # (word, doc_id)
-        words = words.countByKey()                # {word: n_docs}
+        n_docs_total = len(self._lengths)
+        n_docs = self._n_docs
         def compute_idf(x):
             key = x[0]
             word = key[1]
-            n_docs_w = words[word]
-            return (*x, np.log(n_docs / n_docs_w))
+            n_docs_w = n_docs[word]
+            return (*x, np.log(n_docs_total / n_docs_w))
         self._data = self._data.map(compute_idf, preservesPartitioning=True)
         self._features.append(name)
         return self
