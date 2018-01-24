@@ -19,7 +19,8 @@ class Tokenizer:
         self.kwargs = kwargs
 
     def tokenize(self, text):
-        '''Transforms `text` into a list of tokens.'''
+        '''Transforms `text` into a list of tokens.
+        '''
         return nltk.tokenize.word_tokenize(text, **self.kwargs)
 
 
@@ -44,7 +45,8 @@ class Preprocessor:
         self.punc = punc
 
     def __call__(self, text):
-        '''Apply the preprocessor to some string.'''
+        '''Apply the preprocessor to some string.
+        '''
         text = text.lower()
         text = text.strip(self.punc)
         text = self.stemmer.stem(text)
@@ -54,54 +56,34 @@ class Preprocessor:
 
 
 class Loader:
-    '''A factory for constructing a bag-of-words RDD from a text dataset.
+    '''A dataloader for bag-of-words RDDs.
 
-    Loaders construct an RDD with a compound key `(doc_id, word)` where
-    `doc_id` is a unique identifier for each document and `word` is a
-    preprocessed word from the document.
+    This class can read text files and optionally associated label files.
+    The returned data RDDs have the shape `((doc_id, word) count)` where
+    `doc_id` is a unique ID for each document, `word` is a word that appears
+    at least once in the daocument, and `count` is the number of occurences.
+    Note that we use both `doc_id` and `word` as a compound key.
 
-    Initially, the RDD contains a single feature, the number of of occurences
-    of the keyed word in the keyed document. Additional features can be added
-    through methods like `tf` and `tf_idf`.
-
-    Every feature is given a name. The `index` method of the loader maps these
-    feature names to the index of that feature within the RDD row. By default,
-    the initial feature is called "count" and additional features are named
-    after the method which created them.
-
-    The Loader will also load a label RDD if a label file is provided.
-    The label RDD maps each `doc_id` to a string label.
+    The returned label RDDs have the shape `(doc_id, label)` where each
+    document has exactly one label.
 
     The data files are formatted such that each line contains a separate
     document. The label files are formatted such that each line contains a
     comma separated list of labels for that document. We ignore all labels
-    those which end in 'CAT'. If a label file is specified and a document
-    does not have a 'CAT' label, it is ignored. If a label file is specified
-    and a document has multiple 'CAT' labels, the document is duplicated under
-    both labels. If no label file is given, documents are neither ignored nor
-    duplicated.
-
-    The format of the RDD created by a loader is given in a human form through
-    the `__str__` method, and thus can be checked by printing the loader.
+    except those which end in 'CAT'. If a label file is specified and a
+    document does not have a 'CAT' label, it is ignored. On the other hand, If
+    a label file is specified and a document has multiple 'CAT' labels, the
+    document is duplicated under both labels. If no label file is given,
+    documents are neither ignored nor duplicated.
     '''
 
     def __init__(self, ctx):
-        '''Construct a Loader from a SparkContext.'''
+        '''Initialize a Loader from a SparkContext.
+        '''
         self.ctx = ctx
-        self._features = []
-        self._n_docs = None
-        self._lengths = None
-        self._data = None
-        self._labels = None
 
-    def read(self, data_path, label_path=None, name='count',
-            tokenizer=None, preprocess=None):
+    def read(self, data_path, label_path=None, tokenizer=None, preprocess=None):
         '''Read a data file and (optionally) a label file.
-
-        This will reset the loader and load new data from the `data_path`.
-
-        The loader will initially build a simple count feature
-        with the given name.
 
         Args:
             data_path:
@@ -110,21 +92,24 @@ class Loader:
             label_path:
                 A path to the label file. Can be anything accepted by
                 `SparkContext.textFile` including a Google storage URL.
-            name:
-                The name of the initial wordcount feature.
             tokenizer:
                 The tokenizer to split the documents. This is any object with
                 a `tokenize` method, e.g. any of the NLTK tokenizers. The
                 default is a `hydrus.loader.Tokenizer`.
             preprocess:
                 A function to preprocess words. The function may return the
-                empty string to remove the word from the document.
+                empty string to remove the word from the document. The default
+                is a `hydrus.loader.Preprocessor`.
+
+        Returns:
+            A pair of RDDs `(data, label)`.
+            If `label_path` is None, the label RDD is None
         '''
         # Create an RDD of all documents keyed by document ID.
         # We cast the doc_id to str to be easier to work with labels.
-        docs = self.ctx.textFile(data_path)           # (full_text)
-        docs = docs.zipWithUniqueId()                 # (full_text, doc_id)
-        docs = docs.map(lambda x: (str(x[1]), x[0]))  # (doc_id, full_text)
+        data = self.ctx.textFile(data_path)           # (full_text)
+        data = data.zipWithUniqueId()                 # (full_text, doc_id)
+        data = data.map(lambda x: (str(x[1]), x[0]))  # (doc_id, full_text)
 
         # Create an RDD of labels keyed by document ID.
         if label_path is not None:
@@ -138,141 +123,105 @@ class Loader:
 
         # Duplicate or ignore documents depending on the labels.
         if labels is not None:
-            docs = labels.join(docs)                                   # (doc_id, (label, full_text))
-            docs = docs.map(lambda x: (f'{x[0]}_{x[1][0]}', x[1][1]))  # (doc_id+, full_text)
+            data = labels.join(data)                                   # (doc_id, (label, full_text))
+            data = data.map(lambda x: (f'{x[0]}_{x[1][0]}', x[1][1]))  # (doc_id+, full_text)
             labels = labels.map(lambda x: (f'{x[0]}_{x[1]}', x[1]))    # (doc_id+, label)
-
-        # Create a dict mapping documents to their lengths.
-        lengths = docs.map(lambda x: (x[0], len(x[1])))  # (doc_id, length)
-        lengths = lengths.collectAsMap()                 # {doc_id: length}
 
         # Create an RDD of preprocessed words keyed by document ID.
         # Words appear once for each time they appear in the document.
         if tokenizer is None: tokenizer = Tokenizer(language='english')
         if preprocess is None: preprocess = Preprocessor(language='english')
         tokenize = tokenizer.tokenize
-        words = docs.flatMapValues(lambda doc: tokenize(doc))  # (doc_id, word)
-        words = words.mapValues(str.lower)                     # (doc_id, word)
-        words = words.mapValues(preprocess)                    # (doc_id, word)
-        words = words.filter(lambda x: len(x[1]) > 0)          # (doc_id, word)
+        data = data.flatMapValues(lambda doc: tokenize(doc))  # (doc_id, word)
+        data = data.mapValues(str.lower)                      # (doc_id, word)
+        data = data.mapValues(preprocess)                     # (doc_id, word)
+        data = data.filter(lambda x: len(x[1]) > 0)           # (doc_id, word)
 
-        # Create an RDD mapping document-word pairs to counts.
-        # This is the main data RDD that we will give to the user.
-        # We will append additional features as requested.
-        data = words.map(lambda x: ((x[0], x[1]), 1))  # ((doc_id, word), count)
+        # Add a simple word count feature to the data.
+        data = data.map(lambda x: ((x[0], x[1]), 1))   # ((doc_id, word), count)
         data = data.reduceByKey(lambda a, b: a + b)    # ((doc_id, word), count)
 
-        # Create a dict mapping each word to the number of docs in which it appears.
-        # This is a major performance bottleneck.
-        n_docs = words.distinct()                        # (doc_id, word)
-        n_docs = n_docs.map(lambda x: (x[1], 1))         # (word, n_doc)
-        n_docs = n_docs.reduceByKey(lambda a, b: a + b)  # (word, n_doc)
-        n_docs = n_docs.collectAsMap()                   # {word: n_doc}
+        return data, labels
 
-        self._features = [name]
+
+class TfIdfTransformer:
+    '''A transformer which adds TF-IDF features to a simple bag-of-words RDD.
+    '''
+
+    def __init__(self, ctx):
+        '''Initialize a TfIdfTransformer from a SparkContext.
+        '''
+        self.ctx = ctx
+        self._n_docs = None
+
+    def fit(self, data):
+        '''Fit the TF-IDF transform to the training data.
+        '''
+        # Get the number of documents containing each word.
+        # We collect to a dict to be used in the TF map function.
+        n_docs = data                        # ((doc_id, word), count)
+        n_docs = n_docs.map(lambda x: x[0])  # (doc_id, word)
+        n_docs = n_docs.countByValue()       # {word: n_docs}
         self._n_docs = n_docs
-        self._lengths = lengths
-        self._data = data
-        self._labels = labels
         return self
 
-    def tf(self, name='tf'):
-        '''Adds a frequency feature with the given name.'''
-        lengths = self._lengths
-        def compute_freq(x):
-            key = x[0]
-            doc = key[0]
-            count = x[1]
-            length = lengths[doc]
-            return (*x, count/length)
-        self._data = self._data.map(compute_freq, preservesPartitioning=True)
-        self._features.append(name)
-        return self
+    def transform(self, data):
+        '''Adds three features to a bag-of-words RDD: TF, IDF, and TF*IDF.
 
-    def idf(self, name='idf'):
-        '''Adds a standard IDF feature with the given name.'''
-        n_docs_total = len(self._lengths)
-        n_docs = self._n_docs
-        def compute_idf(x):
-            key = x[0]
-            word = key[1]
-            n_docs_w = n_docs[word]
-            return (*x, np.log(n_docs_total / n_docs_w))
-        self._data = self._data.map(compute_idf, preservesPartitioning=True)
-        self._features.append(name)
-        return self
+        Currently this implements the "standard" TF-IDF.
 
-    def tf_idf(self, name='tf_idf', tf_name='tf', idf_name='idf'):
-        '''Adds a TF-IDF feature with the given name.
+        The TF component is just the frequency that the word occurs within the
+        document, i.e. the count divided by the doc length.
 
-        If `tf_name` refers to an existing feature, it is used as the TF
-        component. Otherwise a new standard TF feature is added with that name
-        and used.
+        The IDF component is the log of the smoothed inverse document
+        frequency, i.e. the number of docs divided by one plus the number of
+        docs containing the word. The smoothing avoids divide-by-zero issues.
 
-        Likewise, if `idf_name` refers to an existing feature, it is used as
-        the IDF component. Otherwise a new standard IDF feature is added with
-        that name and used.
+        Args:
+            data:
+                An RDD with the compound key `(doc_id, word)` where the first
+                feature is the number of occurences of that word in that doc.
+                The RDD may contain additional features.
+
+        Returns:
+            An RDD like the input, but with the TF, IDF, and TF*IDF features
+            appended to the end.
         '''
-        if tf_name not in self._features: self.tf(tf_name)
-        if idf_name not in self._features: self.idf(idf_name)
-        i = self.index(tf_name)
-        j = self.index(idf_name)
-        def compute_tf_idf(x):
-            tf = x[i]
-            idf = x[j]
-            return (*x, tf*idf)
-        self._data = self._data.map(compute_tf_idf, preservesPartitioning=True)
-        self._features.append(name)
-        return self
+        # Get the length of each document.
+        # We collect to a dict to be used in the TF map function.
+        lengths = data                                     # ((doc_id, word), count)
+        lengths = lengths.map(lambda x: (x[0][0], x[1]))   # (doc_id, length)
+        lengths = lengths.reduceByKey(lambda a, b: a + b)  # (doc_id, length)
+        lengths = lengths.collectAsMap()                   # {doc_id: length}
 
-    def load(self):
-        '''Returns the data and label RDDs.
+        n_docs_total = len(lengths)
+        n_docs = self._n_docs  # {word: n_docs}
 
-        The label RDD is None if the `label_path` was None at the read step.
-        '''
-        return self._data, self._labels
+        def tf_idf(x):
+            ((doc, word), count, *others) = x
+            n_docs_word = n_docs.get(word, 0) + 1  # +1 smoothing prevents divide by zero
+            tf = count / lengths[doc]
+            idf = np.log(n_docs_total / n_docs_word)
+            tf_idf = tf * idf
+            return ((doc, word), count, *others, tf, idf, tf_idf)
 
-    def index(self, name):
-        '''Returns the index of the feature with the given name.
-
-        If multiple features were added with the same name, this method
-        returns the index of the most recently created choice.
-
-        Note that index 0 always belongs to the key.
-        '''
-        l = len(self._features)
-        r = self._features[-1::-1] # reverse of the list
-
-        # This is intentionally off-by-one. `self._features` contains one
-        # fewer elements than the number of elements in a data point.
-        return l - r.index(name)
-
-    def __str__(self):
-        '''Returns a human-readable description of the data RDD.'''
-        s = f'Loader: ((doc_id, word)'
-        for f in self._features:
-            s += ', ' + f
-        s += ')'
-        return s
+        data = data.map(tf_idf, preservesPartitioning=True)
+        return data
 
 
 if __name__ == '__main__':
     import argparse
-    parser = argparse.ArgumentParser(description='Test the data loader')
-    parser.add_argument('data_path', nargs='?', default='./X_train_vsmall.txt', help='path to the data file')
-    parser.add_argument('label_path', nargs='?', default=None, help='path to the label file')
+    parser = argparse.ArgumentParser(description='Inspect the data loader and TF-IDF transformer')
+    parser.add_argument('data_path', help='path to the data file')
+    parser.add_argument('label_path', help='path to the label file')
     args = parser.parse_args()
 
     conf = pyspark.SparkConf().setAppName('hydrus-p1-dataloader-test')
     ctx = pyspark.SparkContext(conf=conf)
 
-    loader = Loader(ctx) \
-        .read(args.data_path, args.label_path) \
-        .tf_idf()
+    data, labels = Loader(ctx).read(args.data_path, args.label_path)
+    data = TfIdfTransformer(ctx).fit(data).transform(data)
 
-    data, labels = loader.load()
-
-    print(loader)
-    print('Example:', data.take(1)[0])
+    print('Data sample: ', data.take(1)[0])
     if labels is not None:
-        print('Label Example:', labels.take(1)[0])
+        print('Label sample:', labels.take(1)[0])
