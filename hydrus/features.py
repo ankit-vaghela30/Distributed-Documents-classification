@@ -213,6 +213,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Inspect the data loader and TF-IDF transformer')
     parser.add_argument('data_path', help='path to the data file')
     parser.add_argument('label_path', help='path to the label file')
+    parser.add_argument('-a', '--all', action='store_true', help='print all data points')
     args = parser.parse_args()
 
     conf = pyspark.SparkConf().setAppName('hydrus-p1-dataloader-test')
@@ -224,3 +225,7 @@ if __name__ == '__main__':
     print('Data sample: ', data.take(1)[0])
     if labels is not None:
         print('Label sample:', labels.take(1)[0])
+
+    if args.all:
+        print('All data:')
+        data.foreach(lambda x: print(x))
