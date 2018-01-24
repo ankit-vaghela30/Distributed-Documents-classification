@@ -172,7 +172,6 @@ class Loader:
         '''Adds a frequency feature with the given name.'''
         lengths = self._lengths
         def compute_freq(x):
-            nonlocal lengths
             key = x[0]
             doc = key[0]
             count = x[1]
@@ -189,8 +188,6 @@ class Loader:
         words = words.map(lambda x: (x[1], x[0])) # (word, doc_id)
         words = words.countByKey()                # {word: n_docs}
         def compute_idf(x):
-            nonlocal n_docs
-            nonlocal words
             key = x[0]
             word = key[1]
             n_docs_w = words[word]
@@ -215,7 +212,6 @@ class Loader:
         i = self.index(tf_name)
         j = self.index(idf_name)
         def compute_tf_idf(x):
-            nonlocal i, j
             tf = x[i]
             idf = x[j]
             return (*x, tf*idf)
