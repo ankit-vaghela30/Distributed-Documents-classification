@@ -15,10 +15,6 @@ class Tokenizer:
 
     def __init__(self):
         '''Initialize the Tokenizer.
-
-        Args:
-            punc:
-                The set of puntuation marks on which to split.
         '''
         self.pattern = re.compile('[\w]+')
 
