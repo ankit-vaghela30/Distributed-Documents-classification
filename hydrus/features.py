@@ -133,7 +133,6 @@ class Loader:
         if preprocess is None: preprocess = Preprocessor(language='english')
         tokenize = tokenizer.tokenize
         data = data.flatMapValues(lambda doc: tokenize(doc))  # (doc_id, word)
-        data = data.mapValues(str.lower)                      # (doc_id, word)
         data = data.mapValues(preprocess)                     # (doc_id, word)
         data = data.filter(lambda x: len(x[1]) > 0)           # (doc_id, word)
 
