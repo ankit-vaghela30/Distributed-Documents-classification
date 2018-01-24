@@ -1,3 +1,12 @@
+# Datasets
+X_train_*.txt
+X_test_*.txt
+y_train_*.txt
+y_test_*.txt
+
+# Spark stuff
+metastore_db
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
