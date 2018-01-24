@@ -123,13 +123,13 @@ class Loader:
         # Create an RDD of all documents keyed by document ID.
         # We cast the doc_id to str to be easier to work with labels.
         docs = self.ctx.textFile(data_path)           # (full_text)
-        docs = docs.zipWithIndex()                    # (full_text, doc_id)
+        docs = docs.zipWithUniqueId()                 # (full_text, doc_id)
         docs = docs.map(lambda x: (str(x[1]), x[0]))  # (doc_id, full_text)
 
         # Create an RDD of labels keyed by document ID.
         if label_path is not None:
             labels = self.ctx.textFile(label_path)                  # (label_list)
-            labels = labels.zipWithIndex()                          # (label_list, doc_id)
+            labels = labels.zipWithUniqueId()                       # (label_list, doc_id)
             labels = labels.map(lambda x: (str(x[1]), x[0]))        # (doc_id, label_list)
             labels = labels.flatMapValues(lambda s: s.split(','))   # (doc_id, label)
             labels = labels.filter(lambda x: x[1].endswith('CAT'))  # (doc_id, label)
@@ -255,12 +255,22 @@ class Loader:
 
 
 if __name__ == '__main__':
+    import argparse
+    parser = argparse.ArgumentParser(description='Test the data loader')
+    parser.add_argument('data_path', nargs='?', default='./X_train_vsmall.txt', help='path to the data file')
+    parser.add_argument('label_path', nargs='?', default=None, help='path to the label file')
+    args = parser.parse_args()
+
     conf = pyspark.SparkConf().setAppName('hydrus-p1-dataloader-test')
     ctx = pyspark.SparkContext(conf=conf)
 
-    loader = Loader(ctx).read('./X_train_vsmall.txt', './y_train_vsmall.txt').tf_idf()
+    loader = Loader(ctx) \
+        .read(args.data_path, args.label_path) \
+        .tf_idf()
+
     data, labels = loader.load()
 
     print(loader)
     print('Example:', data.take(1)[0])
-    print('Label Example:', labels.take(1)[0])
+    if labels is not None:
+        print('Label Example:', labels.take(1)[0])
