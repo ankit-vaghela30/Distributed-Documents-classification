@@ -152,14 +152,14 @@ class Loader:
         words = words.mapValues(preprocess)                    # (doc_id, word)
         words = words.filter(lambda x: len(x[1]) > 0)          # (doc_id, word)
 
+        # Create a dict mapping documents to their lengths
+        lengths = words.countByKey()  # {doc_id: length}
+
         # Create an RDD mapping document-word pairs to counts and frequencies.
         # This is the RDD that we will give to the user.
         # We will append additional features as requested.
         data = words.map(lambda x: ((x[0], x[1]), 1))  # ((doc_id, word), count)
         data = data.reduceByKey(lambda a, b: a + b)    # ((doc_id, word), count)
-
-        # Create an dict mapping documents to their lengths
-        lengths = words.countByKey()  # {doc_id: length}
 
         self._features = [name]
         self._words = words
