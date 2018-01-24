@@ -1,3 +1,5 @@
+import re
+
 import nltk
 import numpy as np
 import pyspark
@@ -6,22 +8,24 @@ import pyspark
 class Tokenizer:
     '''The default tokenizer, follows the NLTK API.
 
-    It simply calls out to NLTK's `word_tokenize` function.
+    This currently implements a regular expression tokenizer.
+
+    If we were allowed to, I'd prefer NLTK's `word_tokenize` function.
     '''
 
-    def __init__(self, **kwargs):
+    def __init__(self):
         '''Initialize the Tokenizer.
 
         Args:
-            **kwargs:
-                Forwarded to the `nltk.tokenize.word_tokenize` function.
+            punc:
+                The set of puntuation marks on which to split.
         '''
-        self.kwargs = kwargs
+        self.pattern = re.compile('[\w]+')
 
     def tokenize(self, text):
         '''Transforms `text` into a list of tokens.
         '''
-        return nltk.tokenize.word_tokenize(text, **self.kwargs)
+        return self.pattern.findall(text)
 
 
 class Preprocessor:
@@ -129,7 +133,7 @@ class Loader:
 
         # Create an RDD of preprocessed words keyed by document ID.
         # Words appear once for each time they appear in the document.
-        if tokenizer is None: tokenizer = Tokenizer(language='english')
+        if tokenizer is None: tokenizer = Tokenizer()
         if preprocess is None: preprocess = Preprocessor(language='english')
         tokenize = tokenizer.tokenize
         data = data.flatMapValues(lambda doc: tokenize(doc))  # (doc_id, word)
