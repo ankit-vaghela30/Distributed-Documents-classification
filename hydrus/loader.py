@@ -136,7 +136,7 @@ class Loader:
         else:
             labels = None
 
-        # Duplicate or ignore as needed
+        # Duplicate or ignore documents depending on the labels.
         if labels is not None:
             docs = labels.join(docs)                                   # (doc_id, (label, full_text))
             docs = docs.map(lambda x: (f'{x[0]}_{x[1][0]}', x[1][1]))  # (doc_id+, full_text)
@@ -156,8 +156,8 @@ class Loader:
         words = words.mapValues(preprocess)                    # (doc_id, word)
         words = words.filter(lambda x: len(x[1]) > 0)          # (doc_id, word)
 
-        # Create an RDD mapping document-word pairs to counts and frequencies.
-        # This is the RDD that we will give to the user.
+        # Create an RDD mapping document-word pairs to counts.
+        # This is the main data RDD that we will give to the user.
         # We will append additional features as requested.
         data = words.map(lambda x: ((x[0], x[1]), 1))  # ((doc_id, word), count)
         data = data.reduceByKey(lambda a, b: a + b)    # ((doc_id, word), count)
