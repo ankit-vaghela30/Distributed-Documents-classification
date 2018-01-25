@@ -1,3 +1,4 @@
+import html
 import re
 
 import nltk
@@ -16,12 +17,13 @@ class Tokenizer:
     def __init__(self):
         '''Initialize the Tokenizer.
         '''
-        self.pattern = re.compile('[\w]+')
+        self.word_pattern = re.compile('[\w]+')
 
     def tokenize(self, text):
         '''Transforms `text` into a list of tokens.
         '''
-        return self.pattern.findall(text)
+        text = html.unescape(text)
+        return self.word_pattern.findall(text)
 
 
 class Preprocessor:
@@ -31,7 +33,7 @@ class Preprocessor:
     replaces stopwords with the empty string.
     '''
 
-    def __init__(self, language='english', punc=".,:;'!?&+!()-[]{}\<>/?@#$%^*_~="):
+    def __init__(self, language='english'):
         '''Initialize the Preprocessor.
 
         Args:
@@ -42,16 +44,15 @@ class Preprocessor:
         '''
         self.stemmer = nltk.stem.snowball.SnowballStemmer(language='english')
         self.stopwords = nltk.corpus.stopwords.words(language)
-        self.punc = punc
 
     def __call__(self, text):
         '''Apply the preprocessor to some string.
         '''
         text = text.lower()
-        text = text.strip(self.punc)
+        if len(text) == 1: return ''
+        if text in self.stopwords: return ''
+        if text.isnumeric(): return ''
         text = self.stemmer.stem(text)
-        if text in self.stopwords:
-            text = ''
         return text
 
 
@@ -228,4 +229,12 @@ if __name__ == '__main__':
 
     if args.all:
         print('All data:')
-        data.foreach(lambda x: print(x))
+        def print_rdd(x):
+            ((doc, word), count, *features) = x
+            print(f'{doc:8}', end='\t')
+            print(f'{word:15}', end='\t')
+            print(f'{count:3}', end='\t')
+            for f in features:
+                print(f'{f:.3f}', end='\t')
+            print()
+        data.foreach(lambda x: print_rdd(x))
