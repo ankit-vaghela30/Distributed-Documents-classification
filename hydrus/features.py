@@ -159,9 +159,9 @@ class TfIdfTransformer:
         '''
         # Get the number of documents containing each word.
         # We collect to a dict to be used in the TF map function.
-        n_docs = data                        # ((doc_id, word), count)
-        n_docs = n_docs.map(lambda x: x[0])  # (doc_id, word)
-        n_docs = n_docs.countByValue()       # {word: n_docs}
+        n_docs = data                              # ((doc_id, word), count)
+        n_docs = n_docs.map(lambda x: (x[0][1],))  # (word,) once per doc
+        n_docs = n_docs.countByKey()               # {word: n_docs}
         self._n_docs = n_docs
         return self
 
