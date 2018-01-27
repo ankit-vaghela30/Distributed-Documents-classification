@@ -33,6 +33,17 @@ def _coords(*shape):
 class RddTensor:
     '''A tensor abstraction over RDDs of the form `((i, j, ...), x)`
     where the key is the index of the value within the tensor.
+
+    RddTensor's do not have a "shape" in the numpy sense. Instead, an RddTensor
+    only has a number of dimensions (`ndim`), but each of those dimensions are
+    considered to be infinite in size where values not explicitly listed in the
+    underlying RDD are taken to be 0. Additionally, positions along dimensions
+    need not be indexed by natural numbers; they can be indexed by arbitrary
+    data, such as strings. You can even mix-and-match index types.
+
+    This data structure is particularly well suited to bag-of-words matrices,
+    which we would like to index by document ID and word and which are often
+    highly sparse.
     '''
 
     def __init__(self, rdd, ndim=None, feature=0):
@@ -47,9 +58,8 @@ class RddTensor:
         have the form `((i, j), f0, f1, f2)`. If `feature` is 1, then the
         values of this matrix will be taken from `f1`.
 
-        This initializer intentionally avoiding validation, because our use
-        case is unlikely to generate improper RDDs. Thus let's prefer
-        performance.
+        This initializer intentionally avoids validation, because our use case
+        is unlikely to generate improper RDDs. Thus let's prefer performance.
         '''
         if not ndim: ndim = len(rdd.take(1)[0][0])
         self.rdd = rdd.map(lambda x: (x[0], x[feature+1]), preservesPartitioning=True)
