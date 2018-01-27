@@ -207,3 +207,42 @@ class TfIdfTransformer:
 
         data = data.map(tf_idf, preservesPartitioning=True)
         return data
+
+
+def sample_balanced(data, labels):
+        '''Balances a training set by sampling a balanced subset.
+
+        Args:
+            data:
+                The feature RDD of the form `((doc_id, word), *features)`.
+            labels:
+                The label RDD of the form `(doc_id, label)`.
+
+        Returns:
+            A subset of the feature and label RDDs with balanced labels.
+        '''
+        def to_list(a):
+            return [a]
+
+        def append(a, b):
+            a.append(b)
+            return a
+
+        def extend(a, b):
+            a.extend(b)
+            return a
+
+        docs = labels.map(lambda x: (x[1], x[0]))  # (label, doc_id)
+        docs = docs.combineByKey(to_list, append, extend)  # (label, [doc_id])
+
+        counts = docs.mapValues(lambda x: len(x))  # (label, count)
+        counts = counts.collectAsMap()  # {label: count}
+        size = min(counts.values())  # new size for all labels
+
+        docs = docs.mapValues(lambda x: np.random.choice(x, size, replace=False))
+        docs = docs.map(lambda x: list(x[1]))  # ([doc_id])
+        docs = docs.reduce(extend)  # [doc_id]
+
+        data = data.filter(lambda x: x[0][0] in docs)
+        labels = labels.filter(lambda x: x[0] in docs)
+        return data, labels
