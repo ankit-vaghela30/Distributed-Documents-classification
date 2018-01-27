@@ -117,8 +117,7 @@ class RddTensor:
             y = tuple(x[0][i] for i in order)
             return (y, *x[1:])
         rdd = self.rdd.map(t)
-        ndim = self.ndim
-        return RddTensor(rdd, ndim)
+        return RddTensor(rdd, self.ndim)
 
     def matmul(self, other):
         '''Multiply this matrix by another.
@@ -144,7 +143,7 @@ class RddTensor:
         '''
         rdd = self.rdd.mapValues(lambda x: x * scale)
         rdd = rdd.filter(lambda x: x[1] != 0)
-        return RddTensor(rdd, ndim)
+        return RddTensor(rdd, self.ndim)
 
     def hadamard(self, other):
         '''Perform an element-wise multiplication between two tensors.
