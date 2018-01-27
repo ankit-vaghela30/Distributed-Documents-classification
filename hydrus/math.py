@@ -289,3 +289,43 @@ class RddTensor:
         '''
         rdd = self.rdd.mapValues(lambda x: abs(x))
         return RddTensor(rdd, self.ndim)
+
+    def softmax(self, axis=1):
+        '''Apply a softmax along the given axis.
+
+        Args:
+            axis:
+                The index of the axis to softmax along. The default of 1
+                is typically the label axis in logistic regression.
+        '''
+        # The comments reflect the form of the RDDs assuming we're
+        # dealing with a 3D tensor with axes i, j, and k, and that we
+        # softmax along axis j. The code should generalize to any
+        # number of axes and any target axis.
+
+        def rekey(x):
+            (key, val) = x
+            axis_key = key[axis]
+            part_key = key[:axis] + key[axis+1:]
+            return (part_key, (axis_key, val))
+
+        def restore_key(x):
+            (part_key, (axis_key, val)) = x
+            key = part_key[:axis] + (axis_key,) + part_key[axis:]
+            return (key, val)
+
+        def divide(x):
+            (part_key, ((axis_key, exp), sum)) = x
+            return (part_key, (axis_key, exp/sum))
+
+        rdd = self.rdd  # ((i, j, k), x)
+        rdd = rdd.mapValues(lambda x: np.e ** x)  # ((i, j, k), exp)
+
+        rdd = rdd.map(rekey)  # ((i, k), (j, exp))
+        sums = rdd.map(lambda x: (x[0], x[1][1]))  # ((i, k), sum)
+        sums = sums.reduceByKey(lambda x, y: x + y)  # ((i, k), sum)
+
+        rdd = rdd.join(sums)  # ((i, k), ((j, exp), sum))
+        rdd = rdd.map(divide)  # ((i, k), j, softmax)
+        rdd = rdd.map(restore_key)  # ((i, j, k), softmax)
+        return RddTensor(rdd, self.ndim)
