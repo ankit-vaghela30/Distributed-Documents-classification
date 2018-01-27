@@ -67,7 +67,7 @@ class RddTensor:
 
     @staticmethod
     def randint(ctx, low, high=None, shape=None):
-        '''Create a random RddTensor from `np.random.randint`.
+        '''Create an RddTensor of random integers.
 
         The behavior mirrors numpy, e.g. if `high` is not given, `low` is used
         as the maximum value and 0 is used as the minimum.
@@ -83,13 +83,76 @@ class RddTensor:
                 The shape of the tensor.
         '''
         if not shape: shape = (1,)
+        arr = np.random.randint(low, high, shape)
+        return RddTensor.from_numpy(ctx, arr)
+
+    @staticmethod
+    def normal(ctx, loc=0.0, scale=1.0, shape=None):
+        '''Draw an RddTensor from a normal (Gaussian) distribution.
+
+        Args:
+            ctx:
+                The SparkContext used to create the underlying RDD.
+            loc:
+                The mean of the distribution.
+            scale:
+                The standard deviation of the distribution.
+            shape:
+                The shape of the tensor.
+        '''
+        if not shape: shape = (1,)
+        arr = np.random.randint(loc, scale, shape)
+        return RddTensor.from_numpy(ctx, arr)
+
+    @staticmethod
+    def from_numpy(ctx, arr):
+        '''Create an RddTensor from a numpy array.
+
+        Args:
+            ctx:
+                The SparkContext used to create the underlying RDD.
+            arr:
+                The numpy array to initialize the RddTensor.
+        '''
+        shape = arr.shape
         ndim = len(shape)
-        coords = _coords(shape)
-        m = np.random.randint(low, high, shape)
-        r = ctx.parallelize(coords)
-        r = r.map(lambda x: (x, m[x]))
-        r = r.filter(lambda x: x[1] != 0)
+        keys = _coords(shape)
+        r = ctx.parallelize(keys)
+        r = r.map(lambda x: (x, arr[x]))
         return RddTensor(r, ndim)
+
+    def to_numpy(self, dtype=None, return_coords=False):
+        '''Collect this tensor into a numpy array.
+
+        This is expensive. Only do this in testing.
+
+        It is an error to collect an RddTensor to a numpy array if multiple
+        indices exist along the same dimension which cannot be compared.
+
+        Args:
+            dtype:
+                The dtype of the array to collect into.
+            return_coords:
+                If True, this method will also return the corresponding labels
+                for each axis.
+        '''
+        rdd = self.rdd.sortByKey()
+
+        coords = []
+        keys = rdd.keys()
+        for i in range(self.ndim):
+            c = keys.map(lambda x: x[i]).distinct().collect()
+            coords.append(c)
+        shape = tuple(len(c) for c in coords)
+
+        arr = np.zeros(shape, dtype=dtype)
+        for x in rdd.collect():
+            idx = tuple(coords[i].index(k) for i, k in enumerate(x[0]))
+            arr[idx] = x[1]
+        if return_coords:
+            return arr, coords
+        else:
+            return arr
 
     @property
     def t(self):
@@ -153,29 +216,6 @@ class RddTensor:
         c = a.join(b)
         c.mapValues(np.prod)
         return RddTensor(c, self.ndim)
-
-    def to_numpy(self, dtype=None, return_coords=False):
-        '''Collect this tensor into a numpy `ndarray`.
-
-        This is expensive. Only do this in testing.
-        '''
-        rdd = self.rdd.sortByKey()
-
-        coords = []
-        keys = rdd.keys()
-        for i in range(self.ndim):
-            c = keys.map(lambda x: x[i]).distinct().collect()
-            coords.append(c)
-        shape = tuple(len(c) for c in coords)
-
-        arr = np.zeros(shape, dtype=dtype)
-        for x in rdd.collect():
-            idx = tuple(coords[i].index(k) for i, k in enumerate(x[0]))
-            arr[idx] = x[1]
-        if return_coords:
-            return arr, coords
-        else:
-            return arr
 
     def __getitem__(self, key):
         '''Implements element lookup only for complete keys.
