@@ -207,7 +207,7 @@ class RddTensor:
     def __add__(self, other):
         '''Implements the `+` operator as element-wise addition.
         '''
-        assert a.ndim == b.ndim
+        assert self.ndim == other.ndim
         a = self.rdd
         b = other.rdd
         c = a.join(b)
@@ -218,7 +218,7 @@ class RddTensor:
     def __sub__(self, other):
         '''Implements the `-` operator as element-wise subtraction.
         '''
-        assert a.ndim == b.ndim
+        assert self.ndim == other.ndim
         a = self.rdd
         b = other.rdd
         c = a.join(b)
