@@ -207,34 +207,3 @@ class TfIdfTransformer:
 
         data = data.map(tf_idf, preservesPartitioning=True)
         return data
-
-
-if __name__ == '__main__':
-    import argparse
-    parser = argparse.ArgumentParser(description='Inspect the data loader and TF-IDF transformer')
-    parser.add_argument('data_path', help='path to the data file')
-    parser.add_argument('label_path', help='path to the label file')
-    parser.add_argument('-a', '--all', action='store_true', help='print all data points')
-    args = parser.parse_args()
-
-    conf = pyspark.SparkConf().setAppName('hydrus-p1-dataloader-test')
-    ctx = pyspark.SparkContext(conf=conf)
-
-    data, labels = Loader(ctx).read(args.data_path, args.label_path)
-    data = TfIdfTransformer(ctx).fit(data).transform(data)
-
-    print('Data sample: ', data.take(1)[0])
-    if labels is not None:
-        print('Label sample:', labels.take(1)[0])
-
-    if args.all:
-        print('All data:')
-        def print_rdd(x):
-            ((doc, word), count, *features) = x
-            print(f'{doc:8}', end='\t')
-            print(f'{word:15}', end='\t')
-            print(f'{count:3}', end='\t')
-            for f in features:
-                print(f'{f:.3f}', end='\t')
-            print()
-        data.foreach(lambda x: print_rdd(x))
