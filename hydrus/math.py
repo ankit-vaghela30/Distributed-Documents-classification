@@ -293,6 +293,40 @@ class RddTensor:
         rdd = self.rdd.mapValues(lambda x: abs(x))
         return RddTensor(rdd, self.ndim)
 
+    def max(self, axis=1):
+        '''Finds the maximum values along the given axis.
+        '''
+        def rekey(x):
+            (key, val) = x
+            new_key = key[:axis] + key[axis+1:]
+            return (new_key, val)
+
+        rdd = self.rdd  # ((i, j, k), x)
+        rdd = rdd.map(rekey)  # ((i, k), x)
+        rdd = rdd.reduceByKey(lambda x, y: max(x, y))
+        return RddTensor(rdd, self.ndim-1)
+
+    def argmax(self, axis=1):
+        '''Finds the indices of the maximum values the given axis.
+        '''
+        def rekey(x):
+            (key, val) = x
+            axis_key = key[axis]
+            part_key = key[:axis] + key[axis+1:]
+            return (part_key, (axis_key, val))
+
+        def argmax(x, y):
+            if x[1] < y[1]:
+                return y
+            else:
+                return x
+
+        rdd = self.rdd  # ((i, j, k), x)
+        rdd = rdd.map(rekey)  # ((i, k), (j, x))
+        rdd = rdd.reduceByKey(argmax)  # ((i, k), (j, x))
+        rdd = rdd.mapValues(lambda x: x[0])  # ((i, k), j)
+        return RddTensor(rdd, self.ndim-1)
+
     def softmax(self, axis=1):
         '''Apply a softmax along the given axis.
 
@@ -331,4 +365,17 @@ class RddTensor:
         rdd = rdd.join(sums)  # ((i, k), ((j, exp), sum))
         rdd = rdd.map(divide)  # ((i, k), (j, softmax))
         rdd = rdd.map(restore_key)  # ((i, j, k), softmax)
+        return RddTensor(rdd, self.ndim)
+
+    def log_softmax(self, axis=1):
+        '''Computes the log of the softmax along the given axis.
+        '''
+        # TODO: There is a better algorithm than this naive approach.
+        # Consider this:
+        #   log(softmax(x))[i]
+        #   = log(exp(x[i]) / sum(x[j] for j in all_classes))
+        #   = log(exp(x[i])) - log(sum(x[j] for j in all_classes))
+        #   = x[i] - log(sum(x[j] for j in all_classes))
+        mat = self.softmax(axis=axis)
+        rdd = mat.rdd.mapValues(lambda x: np.log(x))
         return RddTensor(rdd, self.ndim)
