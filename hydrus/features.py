@@ -124,9 +124,9 @@ class Loader:
 
         # Duplicate or ignore documents depending on the labels.
         if labels is not None:
-            data = labels.join(data)                                   # (doc_id, (label, full_text))
-            data = data.map(lambda x: (f'{x[0]}_{x[1][0]}', x[1][1]))  # (doc_id+, full_text)
-            labels = labels.map(lambda x: (f'{x[0]}_{x[1]}', x[1]))    # (doc_id+, label)
+            data = labels.join(data)                               # (doc_id, (label, full_text))
+            data = data.map(lambda x: ((x[0], x[1][0]), x[1][1]))  # (doc_id+, full_text)
+            labels = labels.map(lambda x: ((x[0], x[1]), x[1]))    # (doc_id+, label)
 
         # Create an RDD of preprocessed words keyed by document ID.
         # Words appear once for each time they appear in the document.
