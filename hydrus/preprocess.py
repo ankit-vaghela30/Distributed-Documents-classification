@@ -110,13 +110,13 @@ class Loader:
         # We cast the doc_id to str to be easier to work with labels.
         data = self.ctx.textFile(data_path)           # (full_text)
         data = data.zipWithIndex()                    # (full_text, doc_id)
-        data = data.map(lambda x: (str(x[1]), x[0]))  # (doc_id, full_text)
+        data = data.map(lambda x: (x[1], x[0]))       # (doc_id, full_text)
 
         # Create an RDD of labels keyed by document ID.
         if label_path is not None:
             labels = self.ctx.textFile(label_path)                  # (label_list)
             labels = labels.zipWithIndex()                          # (label_list, doc_id)
-            labels = labels.map(lambda x: (str(x[1]), x[0]))        # (doc_id, label_list)
+            labels = labels.map(lambda x: (x[1], x[0]))             # (doc_id, label_list)
             labels = labels.flatMapValues(lambda s: s.split(','))   # (doc_id, label)
             labels = labels.filter(lambda x: x[1].endswith('CAT'))  # (doc_id, label)
         else:
