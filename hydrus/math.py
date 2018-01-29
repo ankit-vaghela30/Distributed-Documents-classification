@@ -329,6 +329,6 @@ class RddTensor:
         sums = sums.reduceByKey(lambda x, y: x + y)  # ((i, k), sum)
 
         rdd = rdd.join(sums)  # ((i, k), ((j, exp), sum))
-        rdd = rdd.map(divide)  # ((i, k), j, softmax)
+        rdd = rdd.map(divide)  # ((i, k), (j, softmax))
         rdd = rdd.map(restore_key)  # ((i, j, k), softmax)
         return RddTensor(rdd, self.ndim)
