@@ -141,7 +141,10 @@ class RddTensor:
         coords = []
         keys = rdd.keys()
         for i in range(self.ndim):
-            c = keys.map(lambda x: x[i]).distinct().collect()
+            c = keys.map(lambda x: x[i])
+            c = c.distinct()
+            c = c.sortBy(lambda x: x)
+            c = c.collect()
             coords.append(c)
         shape = tuple(len(c) for c in coords)
 
