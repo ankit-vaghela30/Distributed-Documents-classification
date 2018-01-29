@@ -1,7 +1,7 @@
 import argparse
 import pyspark
 
-from hydrus.features import Loader, TfIdfTransformer
+from hydrus.preprocess import Loader, TfIdfTransformer
 
 
 # TODO: perhaps there is a better way to arrange a SparkContext,
