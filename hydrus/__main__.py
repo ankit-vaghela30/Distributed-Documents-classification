@@ -13,23 +13,23 @@ ctx = pyspark.SparkContext(conf=conf)
 def preprocess(args):
     '''Inspect the output of the data loader and TF-IDF transformer.
     '''
-    data, labels = Loader(ctx).read(args.data_path, args.label_path)
-    data = TfIdfTransformer(ctx).fit(data).transform(data)
+    counts, labels = Loader(ctx).read(args.data_path, args.label_path)
+    tfidfs = TfIdfTransformer(ctx).fit(counts).transform(counts)
 
-    print('Data sample: ', data.take(1)[0])
+    print('Data sample: ', counts.take(1)[0])
     if labels is not None:
         print('Label sample:', labels.take(1)[0])
 
     if args.all:
         print('All data:')
         def print_rdd(x):
-            ((doc, word), count, *features) = x
-            print(f'{doc:8}', end='\t')
-            print(f'{word:15}', end='\t')
-            print(f'{count:3}', end='\t')
-            for f in features:
-                print(f'{f:.3f}', end='\t')
+            ((doc, word), (count, tfidf)) = x
+            print('{doc:8}'.format(locals()), end='\t')
+            print('{word:15}'.format(locals()), end='\t')
+            print('{count:3}'.format(locals()), end='\t')
+            print('{tfidf:3}'.format(locals()), end='\t')
             print()
+        data = sounts.join(labels)
         data.foreach(lambda x: print_rdd(x))
 
 

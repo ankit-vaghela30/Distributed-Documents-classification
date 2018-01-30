@@ -15,10 +15,9 @@ class LogisticRegression:
         '''
         self.ctx = ctx
         self.weights = None
-        self.feature = 0
         self.ids = None
 
-    def fit(self, x, y, lr=0.01, batch_size=-1, max_iter=1, feature=0, warm_start=False):
+    def fit(self, x, y, lr=0.01, batch_size=-1, max_iter=1, warm_start=False):
         '''Train the model on some dataset and labels.
 
         Args:
@@ -36,17 +35,13 @@ class LogisticRegression:
                 greater than the size of the training set.
             max_iter: Positive int
                 The maximum number of epochs to train.
-            feature: Positive int
-                The index of the feature to learn from in the case that `x`
-                has more than one feature.
             warm_start: bool
                 If True, the weights are not (re)initialized.
         '''
         self.ids = y.keys().distinct().collect()
         self.ids = frozenset(self.ids)
-        self.feature = feature
 
-        x = RddTensor(x, 2, feature=feature)
+        x = RddTensor(x, 2)
         y = RddTensor.from_catigorical(y)
 
         if not warm_start:
@@ -98,7 +93,7 @@ class LogisticRegression:
         Returns: RDD (id, label)
             An RDD mapping IDs to predicted labels.
         '''
-        x = RddTensor(x, 2, feature=self.feature)
+        x = RddTensor(x, 2)
         h = (x @ self.weights).argmax().rdd   # ((doc_id,), label)
         h = h.map(lambda x: (x[0][0], x[1]))  # (doc_id, label)
         return h

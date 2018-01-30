@@ -46,23 +46,17 @@ class RddTensor:
     highly sparse.
     '''
 
-    def __init__(self, rdd, ndim=None, feature=0):
+    def __init__(self, rdd, ndim=None):
         '''Initialize an RddTensor from the given data.
 
         If you already know the number of dimensions (i.e. 2 for matrices),
         you should pass it in to avoid triggering a Spark job.
 
-        The input RDD may have multiple features. In that case, the `feature`
-        argument specifies the index of the feature to use in this matrix.
-        For example, an RDD describing a 2D matrix with 3 features would
-        have the form `((i, j), f0, f1, f2)`. If `feature` is 1, then the
-        values of this matrix will be taken from `f1`.
-
         This initializer intentionally avoids validation, because our use case
         is unlikely to generate improper RDDs. Thus let's prefer performance.
         '''
         if not ndim: ndim = len(rdd.take(1)[0][0])
-        self.rdd = rdd.map(lambda x: (x[0], x[feature+1]), preservesPartitioning=True)
+        self.rdd = rdd
         self.ndim = ndim
 
     @classmethod
@@ -220,10 +214,8 @@ class RddTensor:
             order[0] = 1
             order[1] = 0
         def t(x):
-            # The *x[1:] allows this method to generalize to multiple values.
-            # (Though not all methods support this generalization).
             y = tuple(x[0][i] for i in order)
-            return (y, *x[1:])
+            return (y, x[1])
         rdd = self.rdd.map(t)
         return RddTensor(rdd, self.ndim)
 
