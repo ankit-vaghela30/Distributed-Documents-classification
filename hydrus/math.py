@@ -218,18 +218,15 @@ class RddTensor:
     def matmul(self, other):
         '''Multiply this matrix by another.
         '''
-        # a has form ((A, B), X)
-        # b has form ((B, C), Y)
-        # c has form ((A, C), Z)  [the result]
         assert self.ndim == 2, 'must be a matrix'
         assert other.ndim == 2, 'must be a matrix'
-        a = self.rdd
-        b = other.rdd
+        a = self.rdd   # ((A, B), X)
+        b = other.rdd  # ((B, C), Y)
         a = a.map(lambda x: (x[0][1], (x[0][0], x[1])))  # (B, (A, X))
         b = b.map(lambda x: (x[0][0], (x[0][1], x[1])))  # (B, (C, Y))
         c = a.join(b)  # (B, ((A, X), (C, Y)))
         c = c.mapValues(lambda x: ((x[0][0], x[1][0]), x[0][1] * x[1][1]))  # (B, ((A, C), Z))
-        c = c.map(lambda x: x[1])  # ((A, C), Z)
+        c = c.values()  # ((A, C), Z)
         c = c.reduceByKey(lambda x, y: x + y)
         c = c.filter(lambda x: x[1] != 0)
         return RddTensor(c, self.ndim)
@@ -364,10 +361,6 @@ class RddTensor:
                 The index of the axis to softmax along. The default of 1
                 is typically the label axis in logistic regression.
         '''
-        # The comments reflect the form of the RDDs assuming we're
-        # dealing with a 3D tensor with axes i, j, and k, and that we
-        # softmax along axis j. The code should generalize to any
-        # number of axes and any target axis.
         def rekey(x):
             (key, val) = x
             axis_key = key[axis]
@@ -383,6 +376,10 @@ class RddTensor:
             (part_key, ((axis_key, exp), sum)) = x
             return (part_key, (axis_key, exp/sum))
 
+        # The comments reflect the form of the RDDs assuming we're
+        # dealing with a 3D tensor with axes i, j, and k, and that we
+        # softmax along axis j. The code should generalize to any
+        # number of axes and any target axis.
         rdd = self.rdd  # ((i, j, k), x)
         rdd = rdd.mapValues(lambda x: np.e ** x)  # ((i, j, k), exp)
 
