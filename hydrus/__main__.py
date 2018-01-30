@@ -58,7 +58,7 @@ def info(args):
     print(sys.version)
 
 
-if __name__ == '__main__':
+def main():
     parser = argparse.ArgumentParser(description='Execute hydrus commands')
     subcommands = parser.add_subparsers()
 
@@ -85,3 +85,7 @@ if __name__ == '__main__':
         args.func(args)
     else:
         parser.print_help()
+
+
+if __name__ == '__main__':
+    main()
