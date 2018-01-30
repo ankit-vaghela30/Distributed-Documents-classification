@@ -171,6 +171,16 @@ class RddTensor:
         else:
             return arr
 
+    def persist(self, *args, **kwargs):
+        '''Set this RDD’s storage level to persist its values across
+        operations after the first time it is computed.
+
+        Args and Kwargs:
+            Forwarded to `RDD.persist` on the underlying RDD.
+        '''
+        self.rdd.persist(*args, **kwargs)
+        return self
+
     @property
     def t(self):
         '''The transpose of this tensor.
