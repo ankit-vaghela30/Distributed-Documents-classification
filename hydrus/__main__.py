@@ -50,9 +50,21 @@ def logistic(args):
     hydrus.postprocess.print_labels(pred)
 
 
+def info(args):
+    '''Print system info.
+    '''
+    import sys
+    print('Python version:')
+    print(sys.version)
+
+
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Execute hydrus commands')
     subcommands = parser.add_subparsers()
+
+    # hydrus info
+    cmd = subcommands.add_parser('info', description='print system info')
+    cmd.set_defaults(func=info)
 
     # hydrus softmax <train> <labels> <test>
     cmd = subcommands.add_parser('softmax', description='multinomial logistic regression')
