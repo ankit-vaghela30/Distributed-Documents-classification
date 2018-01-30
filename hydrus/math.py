@@ -182,6 +182,12 @@ class RddTensor:
         return self
 
     @property
+    def ctx(self):
+        '''Get the underlying SparkContext.
+        '''
+        return self.rdd.context
+
+    @property
     def t(self):
         '''The transpose of this tensor.
         '''
@@ -261,8 +267,7 @@ class RddTensor:
         '''
         if len(key) == self.ndim:
             key = tuple(key)
-            ctx = self.rdd.ctx
-            new = ctx.parallelize([(key, value)])
+            new = self.ctx.parallelize([(key, value)])
             rdd = self.rdd.filter(lambda x: x[0] != key)
             rdd = rdd.union(new)
             self.rdd = rdd
@@ -363,7 +368,6 @@ class RddTensor:
         # dealing with a 3D tensor with axes i, j, and k, and that we
         # softmax along axis j. The code should generalize to any
         # number of axes and any target axis.
-
         def rekey(x):
             (key, val) = x
             axis_key = key[axis]
