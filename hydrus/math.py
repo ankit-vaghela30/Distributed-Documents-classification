@@ -65,8 +65,8 @@ class RddTensor:
         self.rdd = rdd.map(lambda x: (x[0], x[feature+1]), preservesPartitioning=True)
         self.ndim = ndim
 
-    @staticmethod
-    def randint(ctx, low, high=None, shape=None):
+    @classmethod
+    def randint(cls, ctx, low, high=None, shape=None):
         '''Create an RddTensor of random integers.
 
         The behavior mirrors numpy, e.g. if `high` is not given, `low` is used
@@ -84,10 +84,10 @@ class RddTensor:
         '''
         if not shape: shape = (1,)
         arr = np.random.randint(low, high, shape)
-        return RddTensor.from_numpy(ctx, arr)
+        return cls.from_numpy(ctx, arr)
 
-    @staticmethod
-    def normal(ctx, loc=0.0, scale=1.0, shape=None):
+    @classmethod
+    def normal(cls, ctx, loc=0.0, scale=1.0, shape=None):
         '''Draw an RddTensor from a normal (Gaussian) distribution.
 
         Args:
@@ -102,10 +102,10 @@ class RddTensor:
         '''
         if not shape: shape = (1,)
         arr = np.random.randint(loc, scale, shape)
-        return RddTensor.from_numpy(ctx, arr)
+        return cls.from_numpy(ctx, arr)
 
-    @staticmethod
-    def from_numpy(ctx, arr):
+    @classmethod
+    def from_numpy(cls, ctx, arr):
         '''Create an RddTensor from a numpy array.
 
         Args:
@@ -119,7 +119,7 @@ class RddTensor:
         keys = _coords(shape)
         r = ctx.parallelize(keys)
         r = r.map(lambda x: (x, arr[x]))
-        return RddTensor(r, ndim)
+        return cls(r, ndim)
 
     def to_numpy(self, dtype=None, return_coords=False):
         '''Collect this tensor into a numpy array.
