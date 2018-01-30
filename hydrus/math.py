@@ -76,7 +76,7 @@ class RddTensor:
         Returns: RddTensor ((x, y), 1)
             An indicator matrix where the value 1 indicates that x maps to y.
         '''
-        labels = labels.map(lambda x: (x, 1))
+        labels = labels.map(lambda x: (x, 1), preservesPartitioning=True)
         return cls(labels, 2)
 
     @classmethod
@@ -132,7 +132,7 @@ class RddTensor:
         ndim = len(shape)
         keys = _coords(shape)
         r = ctx.parallelize(keys)
-        r = r.map(lambda x: (x, arr[x]))
+        r = r.map(lambda x: (x, arr[x]), preservesPartitioning=True)
         return cls(r, ndim)
 
     def to_numpy(self, dtype=None, return_coords=False):
@@ -253,6 +253,7 @@ class RddTensor:
         if len(key) == self.ndim:
             key = tuple(key)
             value = self.rdd.lookup(key)
+            assert len(value) < 2
             return value[0] if value else 0
         else:
             # TODO: We can support this if we have to.
@@ -264,10 +265,11 @@ class RddTensor:
         '''
         if len(key) == self.ndim:
             key = tuple(key)
-            new = self.ctx.parallelize([(key, value)])
             rdd = self.rdd.filter(lambda x: x[0] != key)
-            rdd = rdd.union(new)
-            self.rdd = rdd
+            if value != 0:
+                new = self.ctx.parallelize([(key, value)])
+                rdd = rdd.union(new)
+                self.rdd = rdd
         else:
             # TODO: We can support this if we have to.
             # Let me know if you need this --cbarrick
@@ -398,9 +400,9 @@ class RddTensor:
         # TODO: There is a better algorithm than this naive approach.
         # Consider this:
         #   log(softmax(x))[i]
-        #   = log(exp(x[i]) / sum(x[j] for j in all_classes))
-        #   = log(exp(x[i])) - log(sum(x[j] for j in all_classes))
-        #   = x[i] - log(sum(x[j] for j in all_classes))
+        #   = log(exp(x[i]) / sum(exp(x[j]) for j in all_classes))
+        #   = log(exp(x[i])) - log(sum(exp(x[j]) for j in all_classes))
+        #   = x[i] - log(sum(exp(x[j]) for j in all_classes))
         mat = self.softmax(axis=axis)
         rdd = mat.rdd.mapValues(lambda x: np.log(x))
         return RddTensor(rdd, self.ndim)
