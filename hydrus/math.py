@@ -172,13 +172,25 @@ class RddTensor:
             return arr
 
     def persist(self, *args, **kwargs):
-        '''Set this RDD’s storage level to persist its values across
+        '''Set the underlying RDD’s storage level to persist its values across
         operations after the first time it is computed.
 
         Args and Kwargs:
             Forwarded to `RDD.persist` on the underlying RDD.
+            Currently, the only argument accepted is a StorageLevel.
         '''
         self.rdd.persist(*args, **kwargs)
+        return self
+
+    def unpersist(self, *args, **kwargs):
+        '''Set the underlying RDD’s storage level to persist its values across
+        operations after the first time it is computed.
+
+        Args and Kwargs:
+            Forwarded to `RDD.unpersist` on the underlying RDD.
+            Currently, `RDD.unpersist` takes no arguments.
+        '''
+        self.rdd.unpersist(*args, **kwargs)
         return self
 
     @property
