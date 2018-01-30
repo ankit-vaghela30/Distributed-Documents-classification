@@ -66,6 +66,20 @@ class RddTensor:
         self.ndim = ndim
 
     @classmethod
+    def from_catigorical(cls, labels):
+        '''Converts a simple mapping RDD into an indicator matrix.
+
+        Args:
+            labels: RDD (x, y)
+                An RDD mapping x to y.
+
+        Returns: RddTensor ((x, y), 1)
+            An indicator matrix where the value 1 indicates that x maps to y.
+        '''
+        labels = labels.map(lambda x: (x, 1))
+        return cls(labels, 2)
+
+    @classmethod
     def randint(cls, ctx, low, high=None, shape=None):
         '''Create an RddTensor of random integers.
 
