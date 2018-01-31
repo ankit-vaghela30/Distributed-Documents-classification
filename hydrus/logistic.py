@@ -48,12 +48,19 @@ class LogisticRegression:
             self.weights = self._weights(x, y)
             self.weights.persist(pyspark.StorageLevel.MEMORY_AND_DISK)
 
+        print('Fitting logistic regression')
+        stop = np.datetime64('now')
         for i in range(max_iter):
+            start = stop
             if 0 < batch_size:
                 x_, y_ = self._sample(x, y, batch_size)
             else:
                 x_, y_ = x, y
             self.partial_fit(x_, y_, lr)
+            stop = np.datetime64('now')
+            delta = stop - start
+            print(delta)
+            # print(f'Iteration {i} took {delta}')
 
         return self
 

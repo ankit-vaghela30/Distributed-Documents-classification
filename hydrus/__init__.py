@@ -1,4 +1,5 @@
 from . import logistic
+from . import naive_bayes
 from . import math
 from . import postprocess
 from . import preprocess
