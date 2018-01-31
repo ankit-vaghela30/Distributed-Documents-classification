@@ -50,10 +50,10 @@ def softmax(args):
     ctx = get_context()
     train, labels = hydrus.preprocess.Loader(ctx).read(train, labels)
     train = hydrus.preprocess.TfIdfTransformer(ctx).fit(train).transform(train)
-    test = hydrus.preprocess.Loader(ctx).read(test)
-    lr = hydrus.logistic.LogisticRegression(ctx)
-    lr.fit(train, labels, lr=lr, batch_size=batch_size, max_iter=iters)
-    pred = lr.predict(test)
+    test, _ = hydrus.preprocess.Loader(ctx).read(test)
+    model = hydrus.logistic.LogisticRegression(ctx)
+    model.fit(train, labels, lr=lr, batch_size=batch_size, max_iter=iters)
+    pred = model.predict(test)
     hydrus.postprocess.print_labels(pred)
 
 

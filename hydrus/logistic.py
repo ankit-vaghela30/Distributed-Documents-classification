@@ -70,10 +70,6 @@ class LogisticRegression:
             lr: Positive float
                 The learning rate.
         '''
-        def debug(x):
-            print('FITTING')
-            return x
-
         old_weights = self.weights
         grad = self._gradient(x, y)
         self.weights -= grad * lr
