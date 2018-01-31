@@ -1,19 +1,23 @@
 import argparse
 import pyspark
 
+import hydrus
 from hydrus.preprocess import Loader, TfIdfTransformer
 
 
-# TODO: perhaps there is a better way to arrange a SparkContext,
-# especially if we are submitting through `spark-submit`.
-conf = pyspark.SparkConf().setAppName('hydrus')
-ctx = pyspark.SparkContext(conf=conf)
+def get_context():
+    '''Get the current SparkContext.
+    '''
+    global sc
+    if 'sc' not in globals():
+        sc = hydrus.interactive()
+    return sc
 
 
 def preprocess(args):
     '''Inspect the output of the data loader and TF-IDF transformer.
     '''
-    counts, labels = Loader(ctx).read(args.data_path, args.label_path)
+    counts, labels = Loader(ctx).read(args.train, args.labels)
     tfidfs = TfIdfTransformer(ctx).fit(counts).transform(counts)
 
     print('Data sample: ', counts.take(1)[0])
@@ -33,28 +37,46 @@ def preprocess(args):
         data.foreach(lambda x: print_rdd(x))
 
 
-def hello(args):
-    '''Prints 'hello world' or another string given by `args.string`.
-
-    This is purely an example for how to add new subcommands.
+def logistic(args):
+    '''Perform a logistic regression.
     '''
-    if not args.string: args.string = 'hello world'
-    print(args.string)
+    ctx = get_context()
+    train, labels = hydrus.preprocess.Loader(ctx).read(args.train, args.labels)
+    train = hydrus.preprocess.TfIdfTransformer(ctx).fit(train).transform(train)
+    test = hydrus.preprocess.Loader(ctx).read(args.test)
+    lr = hydrus.logistic.LogisticRegression(ctx)
+    lr.fit(train, labels, max_iter=10)
+    pred = lr.predict(test)
+    hydrus.postprocess.print_labels(pred)
+
+
+def info(args):
+    '''Print system info.
+    '''
+    import sys
+    print('Python version:')
+    print(sys.version)
 
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Execute hydrus commands')
     subcommands = parser.add_subparsers()
 
-    # hydrus hello [-s STRING]
-    cmd = subcommands.add_parser('hello', description='Prints hello world.')
-    cmd.add_argument('-s', '--string', help='print this string instead.')
-    cmd.set_defaults(func=hello)
+    # hydrus info
+    cmd = subcommands.add_parser('info', description='print system info')
+    cmd.set_defaults(func=info)
 
-    # hydrus preprocess [-a] data_path label_path
+    # hydrus softmax <train> <labels> <test>
+    cmd = subcommands.add_parser('softmax', description='multinomial logistic regression')
+    cmd.add_argument('train', help='path to the training set')
+    cmd.add_argument('labels', help='path to the label file')
+    cmd.add_argument('test', help='path to the test set')
+    cmd.set_defaults(func=logistic)
+
+    # hydrus preprocess [-a] <train> <labels>
     cmd = subcommands.add_parser('preprocess', description='Inspect the data loader and TF-IDF transformer')
-    cmd.add_argument('data_path', help='path to the data file')
-    cmd.add_argument('label_path', help='path to the label file')
+    cmd.add_argument('train', help='path to the training set')
+    cmd.add_argument('labels', help='path to the label file')
     cmd.add_argument('-a', '--all', action='store_true', help='print all data points')
     cmd.set_defaults(func=preprocess)
 
