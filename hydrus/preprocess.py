@@ -1,4 +1,5 @@
 import html
+import random
 import re
 
 import nltk
@@ -235,7 +236,7 @@ def sample_balanced(data, labels):
         counts = counts.collectAsMap()  # {label: count}
         size = min(counts.values())  # new size for all labels
 
-        docs = docs.mapValues(lambda x: np.random.choice(x, size, replace=False))
+        docs = docs.mapValues(lambda x: random.sample(x, size))
         docs = docs.map(lambda x: list(x[1]))  # ([doc_id])
         docs = docs.reduce(extend)  # [doc_id]
 
