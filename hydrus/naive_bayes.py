@@ -97,7 +97,8 @@ class GaussianNaiveBayes:
         x = x.map(key_by_label)  # ((label, feature), (id, value))
 
         # Compute the conditionals, reduce to a ranking
-        priors = self.ctx.broadcast(self.priors)
+        log_priors = {k:np.log(v) for k,v in self.priors.items()}
+        log_priors = self.ctx.broadcast(log_priors)
         norm = sp.stats.norm
         def log_probs(a):
             ((label, feature), ((id, value), (count, mean, stdev))) = a
@@ -105,10 +106,10 @@ class GaussianNaiveBayes:
             cd = norm.cdf(value, loc=mean, scale=stdev)
             prob = cd * 2
             log_prob = np.log(prob)
-            return ((id, label), prob)
+            return ((id, label), log_prob)
         def rank(a):
             ((id, label), log_prob) = a
-            rank = log_prob * priors.value[label]
+            rank = log_prob + log_priors.value[label]
             return ((id, label), rank)
         x = x.join(self.stats)  # ((label, feature), ((id, value), (count, mean, stdev)))
         x = x.map(log_probs)  # ((id, label), log_prob)
