@@ -37,15 +37,22 @@ def preprocess(args):
         data.foreach(lambda x: print_rdd(x))
 
 
-def logistic(args):
+def softmax(args):
     '''Perform a logistic regression.
     '''
+    train = args.train
+    labels = args.labels
+    test = args.test
+    lr = float(args.lr)
+    batch_size = int(args.batch_size)
+    iters = int(args.iters)
+
     ctx = get_context()
-    train, labels = hydrus.preprocess.Loader(ctx).read(args.train, args.labels)
+    train, labels = hydrus.preprocess.Loader(ctx).read(train, labels)
     train = hydrus.preprocess.TfIdfTransformer(ctx).fit(train).transform(train)
-    test = hydrus.preprocess.Loader(ctx).read(args.test)
+    test = hydrus.preprocess.Loader(ctx).read(test)
     lr = hydrus.logistic.LogisticRegression(ctx)
-    lr.fit(train, labels, max_iter=10)
+    lr.fit(train, labels, lr=lr, batch_size=batch_size, max_iter=iters)
     pred = lr.predict(test)
     hydrus.postprocess.print_labels(pred)
 
@@ -71,7 +78,10 @@ def main():
     cmd.add_argument('train', help='path to the training set')
     cmd.add_argument('labels', help='path to the label file')
     cmd.add_argument('test', help='path to the test set')
-    cmd.set_defaults(func=logistic)
+    cmd.add_argument('-l', '--lr', default=0.01, help='the learning rate [default=0.01]')
+    cmd.add_argument('-b', '--batch-size', default=-1, help='the batch size [default=-1, meaning full]')
+    cmd.add_argument('-i', '--iters', default=10, help='the number of iterations [default=10]')
+    cmd.set_defaults(func=softmax)
 
     # hydrus preprocess [-a] <train> <labels>
     cmd = subcommands.add_parser('preprocess', description='Inspect the data loader and TF-IDF transformer')
