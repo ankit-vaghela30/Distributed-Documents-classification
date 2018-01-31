@@ -145,7 +145,15 @@ class Loader:
 
 
 class TfIdfTransformer:
-    '''A transformer which adds TF-IDF features to a simple bag-of-words RDD.
+    '''Transforms a bag of word counts into a bag of TF-IDF scores.
+
+    TF-IDF is the term frequency times the inverse document frequency.
+
+    The TF component is the standard term frequency, the word count per the
+    words in the document.
+
+    The IDF component is the log of the inverse document frequency, the
+    training documents per the documents containing the word.
     '''
 
     def __init__(self, ctx):
@@ -155,7 +163,7 @@ class TfIdfTransformer:
         self._n_docs = None
 
     def fit(self, data):
-        '''Fit the TF-IDF transform to the training data.
+        '''Fit the TF-IDF to the training data.
         '''
         # Get the number of documents containing each word.
         # We collect to a dict to be used in the TF map function.
@@ -166,26 +174,14 @@ class TfIdfTransformer:
         return self
 
     def transform(self, data):
-        '''Adds three features to a bag-of-words RDD: TF, IDF, and TF*IDF.
-
-        Currently this implements the "standard" TF-IDF.
-
-        The TF component is just the frequency that the word occurs within the
-        document, i.e. the count divided by the doc length.
-
-        The IDF component is the log of the smoothed inverse document
-        frequency, i.e. the number of docs divided by one plus the number of
-        docs containing the word. The smoothing avoids divide-by-zero issues.
+        '''Computes the TF-IDF of a bag of word counts.
 
         Args:
             data:
-                An RDD with the compound key `(doc_id, word)` where the first
-                feature is the number of occurences of that word in that doc.
-                The RDD may contain additional features.
+                An RDD of the form `((id, word), count)`.
 
         Returns:
-            An RDD like the input, but with the TF, IDF, and TF*IDF features
-            appended to the end.
+            An RDD of the form `((id, word), tf-idf)`.
         '''
         # Get the length of each document.
         # We collect to a dict to be used in the TF map function.
@@ -198,12 +194,12 @@ class TfIdfTransformer:
         n_docs = self._n_docs  # {word: n_docs}
 
         def tf_idf(x):
-            ((doc, word), count, *others) = x
+            ((doc, word), count) = x
             n_docs_word = n_docs.get(word, 0) + 1  # +1 smoothing prevents divide by zero
             tf = count / lengths[doc]
             idf = np.log(n_docs_total / n_docs_word)
             tf_idf = tf * idf
-            return ((doc, word), count, *others, tf, idf, tf_idf)
+            return ((doc, word), tf_idf)
 
         data = data.map(tf_idf, preservesPartitioning=True)
         return data
@@ -214,9 +210,9 @@ def sample_balanced(data, labels):
 
         Args:
             data:
-                The feature RDD of the form `((doc_id, word), *features)`.
+                A feature RDD of the form `((id, feature), value)`.
             labels:
-                The label RDD of the form `(doc_id, label)`.
+                A label RDD of the form `(id, label)`.
 
         Returns:
             A subset of the feature and label RDDs with balanced labels.
