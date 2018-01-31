@@ -101,12 +101,12 @@ else
 fi
 
 
+## DONE installing
+echo "Finished bootstrapping via Anaconda, sourcing /etc/profile ..."
+source /etc/profile
+
+
 ## Install and setup Python packages.
 # Add commands to install and configure packages here.
 conda update --all
-python -c "import nltk; nltk.download('pupular')"
-
-
-## DONE
-echo "Finished bootstrapping via Anaconda, sourcing /etc/profile ..."
-source /etc/profile
+python -m nltk.downloader -d /usr/local/share/nltk_data popular
