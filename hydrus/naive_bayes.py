@@ -104,8 +104,7 @@ class GaussianNaiveBayes:
         def log_probs(a):
             ((label, feature), ((id, value), (count, mean, stdev))) = a
             if mean < value: value = mean - (value - mean)  # flip about the mean
-            cd = norm.cdf(value, loc=mean, scale=stdev)
-            prob = cd * 2
+            prob = norm.cdf(value, loc=mean, scale=stdev)
             log_prob = np.log(prob)
             return ((id, label), log_prob)
         x = x.join(self.stats)  # ((label, feature), ((id, value), (count, mean, stdev)))
