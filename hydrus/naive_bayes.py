@@ -24,11 +24,12 @@ class GaussianNaiveBayes:
                 An RDD mapping instance IDs to true labels.
         '''
         # Enumerate the labels, keep as an RDD
-        labels = y.values().distinct()
+        vals = y.values()
+        labels = vals.distinct()
 
         # Compute the label priors
-        n = y.count()
-        priors = y.values().countByValue()  # {label: count}
+        n = vals.count()
+        priors = vals.countByValue()  # {label: count}
         priors = {k:v/n for k,v in priors.items()}  # {label: prior}
 
         # y is small-ish (number of documents).
@@ -49,7 +50,7 @@ class GaussianNaiveBayes:
         # [1]: https://en.wikipedia.org/wiki/Algorithms_for_calculating_variance#Parallel_algorithm
         # [2]: http://i.stanford.edu/pub/cstr/reports/cs/tr/79/773/CS-TR-79-773.pdf
         def seq(a, b):
-            b = (1, b**2, b)
+            b = (1, b, 0)
             return comb(a, b)
         def comb(a, b):
             (count_a, mean_a, var_a) = a
