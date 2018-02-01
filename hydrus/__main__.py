@@ -56,10 +56,12 @@ def softmax(args):
     train_x, train_y = loader.read(train_x, train_y)
     if args.balance:
         train_x, train_y = hydrus.preprocess.sample_balanced(train_x, train_y)
-    train_x = tfidf.fit(train_x).transform(train_x)
+    if args.tfidf:
+        train_x = tfidf.fit(train_x).transform(train_x)
 
     test_x, test_y = loader.read(test_x, test_y)
-    test_x = tfidf.transform(test_x)
+    if args.tfidf:
+        test_x = tfidf.transform(test_x)
 
     model = hydrus.logistic.LogisticRegression(ctx)
     model.fit(train_x, train_y, lr=lr, batch_size=batch_size, max_iter=iters)
@@ -87,10 +89,12 @@ def gausian_naive_bayes(args):
     train_x, train_y = loader.read(train_x, train_y)
     if args.balance:
         train_x, train_y = hydrus.preprocess.sample_balanced(train_x, train_y)
-    train_x = tfidf.fit(train_x).transform(train_x)
+    if args.tfidf:
+        train_x = tfidf.fit(train_x).transform(train_x)
 
     test_x, test_y = loader.read(test_x, test_y)
-    test_x = tfidf.transform(test_x)
+    if args.tfidf:
+        test_x = tfidf.transform(test_x)
 
     model = hydrus.naive_bayes.GaussianNaiveBayes(ctx)
     model.fit(train_x, train_y)
@@ -125,7 +129,8 @@ def main():
     cmd.add_argument('train_y', help='path to the training labels')
     cmd.add_argument('test_x', help='path to the test set')
     cmd.add_argument('test_y', help='path to the test labels', nargs='?', default=None)
-    cmd.add_argument('--balance', help='resample the dataset to be balanced', default=None)
+    cmd.add_argument('--balance', help='resample the dataset to be balanced', action='store_true')
+    cmd.add_argument('--tfidf', help='apply a TF-IDF transform', action='store_true')
     cmd.add_argument('-l', '--lr', default=0.01, help='the learning rate [default=0.01]')
     cmd.add_argument('-b', '--batch-size', default=-1, help='the batch size [default=-1, meaning full]')
     cmd.add_argument('-i', '--iters', default=10, help='the number of iterations [default=10]')
@@ -137,7 +142,8 @@ def main():
     cmd.add_argument('train_y', help='path to the training labels')
     cmd.add_argument('test_x', help='path to the test set')
     cmd.add_argument('test_y', help='path to the test labels', nargs='?', default=None)
-    cmd.add_argument('--balance', help='resample the dataset to be balanced', default=None)
+    cmd.add_argument('--balance', help='resample the dataset to be balanced', action='store_true')
+    cmd.add_argument('--tfidf', help='apply a TF-IDF transform', action='store_true')
     cmd.set_defaults(func=gausian_naive_bayes)
 
     # hydrus preprocess [-a] <train_x> <train_y>
