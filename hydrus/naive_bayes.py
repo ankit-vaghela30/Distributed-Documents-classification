@@ -72,9 +72,9 @@ class GaussianNaiveBayes:
 
         # For naive bayes, we need the list of labels,
         # their priors, and the distributions of features.
-        self.labels = labels
+        self.labels = labels.persist()
+        self.stats = stats.persist()
         self.priors = priors
-        self.stats = stats
         return self
 
     def predict(self, x):
@@ -97,24 +97,26 @@ class GaussianNaiveBayes:
         x = self.labels.cartesian(x)  # (label, ((id, feature), value))
         x = x.map(key_by_label)  # ((label, feature), (id, value))
 
-        # Compute the conditionals, reduce to a ranking
+        # Compute the conditionals
         log_priors = {k:np.log(v) for k,v in self.priors.items()}
         log_priors = self.ctx.broadcast(log_priors)
         norm = sp.stats.norm
         def log_probs(a):
             ((label, feature), ((id, value), (count, mean, stdev))) = a
-            if mean < value: value = mean - (value - mean)
+            if mean < value: value = mean - (value - mean)  # flip about the mean
             cd = norm.cdf(value, loc=mean, scale=stdev)
             prob = cd * 2
             log_prob = np.log(prob)
             return ((id, label), log_prob)
+        x = x.join(self.stats)  # ((label, feature), ((id, value), (count, mean, stdev)))
+        x = x.map(log_probs)  # ((id, label), log_prob)
+        x = x.reduceByKey(lambda a, b: a + b)  # ((id, label), log_prob)
+
+        # Reduce to a ranking
         def rank(a):
             ((id, label), log_prob) = a
             rank = log_prob + log_priors.value[label]
             return ((id, label), rank)
-        x = x.join(self.stats)  # ((label, feature), ((id, value), (count, mean, stdev)))
-        x = x.map(log_probs)  # ((id, label), log_prob)
-        x = x.reduceByKey(lambda a, b: a + b)  # ((id, label), log_prob)
         x = x.map(rank, preservesPartitioning=True)  # ((id, label), rank)
 
         # Max out the best label
@@ -131,7 +133,7 @@ class GaussianNaiveBayes:
         x = x.map(key_by_id)  # (id, (label, rank))
         x = x.reduceByKey(max_label)  # (id, (label, rank))
         x = x.map(flatten)
-        return x
+        return x.persist()
 
     def score(self, x, y):
         '''Scores the predicted labels for x against the true labels y.

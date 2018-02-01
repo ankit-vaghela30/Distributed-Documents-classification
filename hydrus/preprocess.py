@@ -245,4 +245,7 @@ def sample_balanced(data, labels):
 
         data = data.filter(lambda x: x[0][0] in docs)
         labels = labels.filter(lambda x: x[0] in docs)
+
+        data.persist()
+        labels.persist()
         return data, labels
