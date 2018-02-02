@@ -107,6 +107,39 @@ def gausian_naive_bayes(args):
         hydrus.postprocess.print_labels(pred)
 
 
+def naive_bayes(args):
+    '''Perform a regulr naive bayes classification
+    '''
+    train_x = args.train_x
+    train_y = args.train_y
+    test_x = args.test_x
+    test_y = args.test_y
+
+    ctx = get_context()
+    loader = hydrus.preprocess.Loader(ctx)
+    tfidf = hydrus.preprocess.TfIdfTransformer(ctx)
+
+    train_x, train_y = loader.read(train_x, train_y)
+    if args.balance:
+        train_x, train_y = hydrus.preprocess.sample_balanced(train_x, train_y)
+    if args.tfidf:
+        train_x = tfidf.fit(train_x).transform(train_x)
+
+    test_x, test_y = loader.read(test_x, test_y)
+    if args.tfidf:
+        test_x = tfidf.transform(test_x)
+
+    model = hydrus.naive_bayes.NaiveBayes(ctx)
+    model.fit(train_x, train_y)
+
+    if test_y:
+        score = model.score(test_x, test_y)
+        print(score)
+    else:
+        pred = model.predict(test_x)
+        print('pred is: ',pred.collect())
+        hydrus.postprocess.print_labels(pred)
+
 def info(args):
     '''Print system info.
     '''
@@ -145,6 +178,16 @@ def main():
     cmd.add_argument('--balance', help='resample the dataset to be balanced', action='store_true')
     cmd.add_argument('--tfidf', help='apply a TF-IDF transform', action='store_true')
     cmd.set_defaults(func=gausian_naive_bayes)
+
+    # hydrus nb [<args>...] <train_x> <train_y> <test_x> [<test_y>]
+    cmd = subcommands.add_parser('nb', description='Naive Bayes')
+    cmd.add_argument('train_x', help='path to the training set')
+    cmd.add_argument('train_y', help='path to the training labels')
+    cmd.add_argument('test_x', help='path to the test set')
+    cmd.add_argument('test_y', help='path to the test labels', nargs='?', default=None)
+    cmd.add_argument('--balance', help='resample the dataset to be balanced', action='store_true')
+    cmd.add_argument('--tfidf', help='apply a TF-IDF transform', action='store_true')
+    cmd.set_defaults(func=naive_bayes)
 
     # hydrus preprocess [-a] <train_x> <train_y>
     cmd = subcommands.add_parser('preprocess', description='Inspect the data loader and TF-IDF transformer')
