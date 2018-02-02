@@ -142,6 +142,8 @@ class Loader:
         data = data.map(lambda x: ((x[0], x[1]), 1))   # ((doc_id, word), count)
         data = data.reduceByKey(lambda a, b: a + b)    # ((doc_id, word), count)
 
+        data.persist()
+        if labels: labels.persist()
         return data, labels
 
 
@@ -203,6 +205,7 @@ class TfIdfTransformer:
             return ((doc, word), tf_idf)
 
         data = data.map(tf_idf, preservesPartitioning=True)
+        data.persist()
         return data
 
 
@@ -242,4 +245,7 @@ def sample_balanced(data, labels):
 
         data = data.filter(lambda x: x[0][0] in docs)
         labels = labels.filter(lambda x: x[0] in docs)
+
+        data.persist()
+        labels.persist()
         return data, labels

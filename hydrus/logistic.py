@@ -46,7 +46,7 @@ class LogisticRegression:
 
         if not warm_start:
             self.weights = self._weights(x, y)
-            self.weights.persist(pyspark.StorageLevel.MEMORY_AND_DISK)
+            self.weights.persist()
 
         print('Fitting logistic regression')
         stop = np.datetime64('now')
@@ -80,8 +80,7 @@ class LogisticRegression:
         old_weights = self.weights
         grad = self._gradient(x, y)
         self.weights -= grad * lr
-        self.weights.persist(pyspark.StorageLevel.MEMORY_AND_DISK)
-        old_weights.unpersist()
+        self.weights.persist()
         return self
 
     def predict(self, x):
