@@ -44,19 +44,31 @@ class NaiveBayes:
         y = y.collectAsMap()  # {id: label}
         y = self.ctx.broadcast(y)
 
-        # create from ((id, feature), value) RDD, a new RDD of dimension ((label, feature), value)
+        # View the features both by doc id and by label.
         def doc_to_label(x):
             ((doc_id, feature), value) = x
             label = y.value[doc_id]
             return ((label, feature), value)
         by_label = x.map(doc_to_label)  # ((label, feature), value)
+        by_label = by_label.reduceByKey(lambda x, y: x+y)
+        by_label_map = by_label.collectAsMap()
 
+        # we will cartesian class labels with RDD
+        cartesian_label = labels.cartesian(x) # (label, (id, feature), value)
+        #print('cartesian product is: ', cartesian_label.collect())
+
+        # removing the id,
+        def restructure_cartesian_product(a):
+            (label, ((id, feature), value)) = a
+            return ((label, feature), value)
+        cartesian_product_rdd = cartesian_label.map(restructure_cartesian_product)
+        #
         # We calculate likelyhodd probability for word given class and take log of that
         def calculate_likelyhood_probability(by_label):
             ((label, feature), value) = by_label
-            value = (counts[label]+1)/prob_denom.value[label]
+            value = (by_label_map.get((label, feature),0)+1)/prob_denom.value[label]
             return ((label, feature), np.log(value))
-        log_likelyhood_probability = by_label.map(calculate_likelyhood_probability) # ((label, feature), log likelyhood value)
+        log_likelyhood_probability = cartesian_product_rdd.map(calculate_likelyhood_probability) # ((label, feature), log likelyhood value)
 
         # For naive bayes, we need the list of labels,
         # their log priors, and log likelyhood probability.
