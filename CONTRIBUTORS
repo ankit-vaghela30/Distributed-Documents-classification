@@ -1,14 +1,14 @@
 Chris Barrick:
-	Cluster management
-	Preprocessing
+	Project manager
+	I/O
+	TF-IDF
+	Matrix Library
+	Logistic Regression
+	Gaussian Naive Bayes
+	Entry points & Spark driver
 
 Ankit Vaghela:
-	Naive Bayes
-	Web docs
-
-Vibodh Fenani:
-	Logistic Regression
-
-Vamsi Nadella:
-	Preprocessing
-	Scoring
+	Vanilla Naive Bayes v1 (pure Python prototype)
+	Vanilla Naive Bayes v2 (Spark)
+	Code reviews
+	Pair programming
